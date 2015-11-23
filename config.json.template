@@ -1,0 +1,8 @@
+{
+  "access_token": "", 
+  "consumer_key": "", 
+  "since_id": "", 
+  "consumer_secret": "", 
+  "access_token_secret": "", 
+  "db_file": "markov.db"
+}
