@@ -20,10 +20,11 @@ if not os.path.isfile(db_file):
         if re.search('wastebook', line, re.IGNORECASE):
             continue
         line = line.strip()
-        line = re.sub(r'\+\w+-', '', line)
-        line = re.sub('<http\w+>', '', line)
+        line = re.sub(r'\+\w+- *', '', line)
+        line = re.sub('<?http.+>?', '', line)
         line = re.sub('-$', '', line)
         line = re.sub('^\d+ ', '', line)
+        line = re.sub('\.\d+ ', '.', line)
         text.append(line)
     mc.generateDatabase(' '.join(text))
     mc.dumpdb()
@@ -34,30 +35,45 @@ auth = tweepy.OAuthHandler(config['consumer_key'], config['consumer_secret'])
 auth.set_access_token(config['access_token'], config['access_token_secret'])
 tw = tweepy.API(auth)
 
-# look for messages sent to us
-
-tweet_ids = []
-for tweet in tw.mentions_timeline(since_id=config['since_id']):
-    text = tweet.text.replace('@wastebookbot ', '')
-    user = tweet.user.screen_name
-    status_id = tweet.id_str
-
-    if len(text) == 0:
-        text = mc.generateString()
-
+def generate_text(text):
     tries = 0
-    while len(text.split(' ')) < 5 and tries < 10:
-        text = mc.generateString(text)
+    while tries < 100:
         tries += 1
+        try:
+            if not text:
+                text = mc.generateString()
+            else:
+                new_text = mc.generateStringWithSeed(text)
+                if new_text == text:
+                    text = ''
+                else:
+                    text = new_text
+        except pymarkovchain.StringContinuationImpossibleError:
+            text = mc.generateString()
 
-    text = '.@%s %s' % (user, text)
-    text = text[0:140]
-    tw.update_status(status=text, in_reply_to_status_id=status_id)
+        if len(text.split(' ')) > 5:
+            break
 
-    time.sleep(1)
-    tweet_ids.append(tweet.id_str)
+    return text
 
-if len(tweet_ids) > 0:
-    config['since_id'] = max(tweet_ids)
+class ReplyListener(tweepy.StreamListener):
+    def on_status(self, tweet):
+        if tweet.in_reply_to_screen_name != 'wastebookbot':
+            return
 
-json.dump(config, open('config.json', 'w'), indent=2)
+        text = tweet.text.replace('@wastebookbot ', '')
+        user = tweet.user.screen_name
+        status_id = tweet.id_str
+
+        text = generate_text(text)
+        text = '.@%s %s' % (user, text)
+        text = text[0:140]
+        tw.update_status(status=text, in_reply_to_status_id=status_id)
+        print text
+        time.sleep(1)
+
+        config['since_id'] = tweet.id_str
+        json.dump(config, open('config.json', 'w'), indent=2)
+
+stream = tweepy.Stream(auth=tw.auth, listener=ReplyListener())
+stream.userstream()
