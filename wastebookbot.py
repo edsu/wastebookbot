@@ -72,9 +72,6 @@ class ReplyListener(tweepy.StreamListener):
         print text
         time.sleep(1)
 
-        config['since_id'] = tweet.id_str
-        json.dump(config, open('config.json', 'w'), indent=2)
-
 auth = tweepy.OAuthHandler(config['consumer_key'], config['consumer_secret'])
 auth.set_access_token(config['access_token'], config['access_token_secret'])
 
