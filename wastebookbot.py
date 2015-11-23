@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""
+A daemon that listens for tweets to @wastebookbot and replies
+with random markov chain text. The first time you run this it
+will generate the markov database.
+"""
+
 import os
 import re
 import json
@@ -28,12 +34,6 @@ if not os.path.isfile(db_file):
         text.append(line)
     mc.generateDatabase(' '.join(text))
     mc.dumpdb()
-
-# set up twitter api
-
-auth = tweepy.OAuthHandler(config['consumer_key'], config['consumer_secret'])
-auth.set_access_token(config['access_token'], config['access_token_secret'])
-tw = tweepy.API(auth)
 
 def generate_text(text):
     tries = 0
@@ -75,5 +75,8 @@ class ReplyListener(tweepy.StreamListener):
         config['since_id'] = tweet.id_str
         json.dump(config, open('config.json', 'w'), indent=2)
 
-stream = tweepy.Stream(auth=tw.auth, listener=ReplyListener())
+auth = tweepy.OAuthHandler(config['consumer_key'], config['consumer_secret'])
+auth.set_access_token(config['access_token'], config['access_token_secret'])
+
+stream = tweepy.Stream(auth=auth, listener=ReplyListener())
 stream.userstream()
